@@ -26,6 +26,7 @@ class MelSpectogram {
 
   void arrangeAudioBufferDataBasedOnBitReversedIndex(float *audio_data);
   void computeFFT(float *audio_data_real);
+  void computeAmplitude(float *audio_data_real, float *audio_data_imaginary);
   bool findMinMaxFromAudioBuffer(float *audio_buffer,
                                  float *mel_spectogram_data, float *min_data,
                                  float *max_data);

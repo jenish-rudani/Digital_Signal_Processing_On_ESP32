@@ -100,6 +100,15 @@ void MelSpectogram::arrangeAudioBufferDataBasedOnBitReversedIndex(
   }
 }
 
+void MelSpectogram::computeAmplitude(float* audio_data_real,
+                                     float* audio_data_imaginary) {
+  for (int i = 0; i < number_of_audio_data_samples; i++) {
+    audio_data_real[i] =
+        sqrt((audio_data_real[i] * audio_data_real[i]) +
+             (audio_data_imaginary[i] * audio_data_imaginary[i]));
+  }
+}
+
 void MelSpectogram::computeFFT(float* audio_data_real) {
   float* audio_data_imaginary;
   audio_data_imaginary = new float[number_of_audio_data_samples]();
@@ -133,6 +142,6 @@ void MelSpectogram::computeFFT(float* audio_data_real) {
     c2 = -c2;
     c1 = sqrt((1.0 + c1) / 2.0);
   }
-
+  computeAmplitude(audio_data_real, audio_data_imaginary);
   delete[] audio_data_imaginary;
 }
