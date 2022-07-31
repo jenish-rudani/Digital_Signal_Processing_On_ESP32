@@ -53,6 +53,8 @@ void loop() {
 void setupI2S() {
   installI2SDrivers();
   setMicrophonePins();
+
+  // Reset I2S Drivers in case of Power on Reset
   i2s_stop(I2S_PORT);
   delay(1000);
   i2s_start(I2S_PORT);
