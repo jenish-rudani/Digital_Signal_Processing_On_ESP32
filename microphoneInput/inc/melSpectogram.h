@@ -6,7 +6,7 @@ class MelSpectogram {
   uint16_t number_of_mel_bins, number_of_audio_data_samples, audio_sample_rate;
   float min_frequency, max_frequency, minimum_volume_threshold;
   float *temp_audio_data;
-
+  uint8_t power_of_two = 0;
   // Hamming Window
   float *hamming_window_coefficient = NULL;
   void computeHammingWindowCoefficients();
@@ -20,8 +20,13 @@ class MelSpectogram {
   // Destructor
   ~MelSpectogram();
 
+  void calculatePowerOfTwoBasedOnNumberOfSamples();
   void applyHammingWindow(float *audio_data);
   void computeMelSpectogram(float *input_audio_data, float *mel_audio_data);
 
-  void computeMelSpectogram(float *audio_data, float *mel_spectogram_data);
+  void arrangeAudioBufferDataBasedOnBitReversedIndex(float *audio_data);
+  void computeFFT(float *audio_data_real);
+  bool findMinMaxFromAudioBuffer(float *audio_buffer,
+                                 float *mel_spectogram_data, float *min_data,
+                                 float *max_data);
 };
