@@ -1,6 +1,8 @@
 #pragma once
 #include <cmath>
 
+#include "defines.h"
+#include "filter.h"
 class MelSpectogram {
  private:
   uint16_t number_of_mel_bins, number_of_audio_data_samples, audio_sample_rate;
@@ -10,7 +12,14 @@ class MelSpectogram {
   // Hamming Window
   float *hamming_window_coefficient = NULL;
   void computeHammingWindowCoefficients();
-  void applyHammingWindow();
+
+  // Mel Matrix
+  float **mel_spec_mat = NULL;
+  float hertzToMelScale(float f);
+  float melToHertzScale(float m);
+  void calculate_mel_spec_coeff(uint16_t num_mel_bands, float freq_min,
+                                float freq_max, uint16_t num_fft_bands,
+                                uint16_t sample_rate);
 
  public:
   // Constructor
@@ -30,4 +39,6 @@ class MelSpectogram {
   bool findMinMaxFromAudioBuffer(float *audio_buffer,
                                  float *mel_spectogram_data, float *min_data,
                                  float *max_data);
+  class ExponentialDiscreteFilter *mel_spectogram_gain,
+      *mel_spectogram_smoothing;
 };

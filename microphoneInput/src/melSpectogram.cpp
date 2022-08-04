@@ -18,6 +18,12 @@ MelSpectogram::MelSpectogram(uint16_t number_of_samples,
 
   // Calculate Power Of Two based on number of samples
   calculatePowerOfTwoBasedOnNumberOfSamples();
+
+  // Smoothing filters
+  mel_spectogram_gain =
+      new ExponentialDiscreteFilter(1, mel_spectogram_gain_alpha_decay, 0.99);
+  mel_spectogram_smoothing = new ExponentialDiscreteFilter(
+      number_of_mel_bins, mel_spectogram_smoothing_alpha_decay, 0.99);
 }
 
 MelSpectogram::~MelSpectogram() {
@@ -109,17 +115,21 @@ void MelSpectogram::computeAmplitude(float* audio_data_real,
   }
 }
 
+// Calculate N Point DFT based on number_of_audio_data_samples
 void MelSpectogram::computeFFT(float* audio_data_real) {
+  // temp container for Imaginary Data
   float* audio_data_imaginary;
   audio_data_imaginary = new float[number_of_audio_data_samples]();
 
+  // Bit Reversal step
   arrangeAudioBufferDataBasedOnBitReversedIndex(audio_data_real);
-  // Compute the FFT
-  float c1 = -1.0;
-  float c2 = 0.0;
+
+  // Compute the FFT (Butterfly Method)
+  float coeff_1 = -1.0;
+  float coeff_2 = 0.0;
   uint16_t l2 = 1;
   uint16_t j = 0;
-  for (uint8_t l = 0; (l < power_of_two); l++) {
+  for (uint8_t l = 0; l < power_of_two; l++) {
     uint16_t l1 = l2;
     l2 <<= 1;
     float u1 = 1.0;
@@ -127,21 +137,87 @@ void MelSpectogram::computeFFT(float* audio_data_real) {
     for (j = 0; j < l1; j++) {
       for (uint16_t i = j; i < number_of_audio_data_samples; i += l2) {
         uint16_t i1 = i + l1;
-        float t1 = u1 * audio_data_real[i1] - u2 * audio_data_imaginary[i1];
-        float t2 = u1 * audio_data_imaginary[i1] + u2 * audio_data_real[i1];
-        audio_data_real[i1] = audio_data_real[i] - t1;
-        audio_data_imaginary[i1] = audio_data_imaginary[i] - t2;
-        audio_data_real[i] += t1;
-        audio_data_imaginary[i] += t2;
+        float temp_var_1 =
+            u1 * audio_data_real[i1] - u2 * audio_data_imaginary[i1];
+        float temp_var_2 =
+            u1 * audio_data_imaginary[i1] + u2 * audio_data_real[i1];
+        audio_data_real[i1] = audio_data_real[i] - temp_var_1;
+        audio_data_imaginary[i1] = audio_data_imaginary[i] - temp_var_2;
+        audio_data_real[i] += temp_var_1;
+        audio_data_imaginary[i] += temp_var_2;
       }
-      float z = ((u1 * c1) - (u2 * c2));
-      u2 = ((u1 * c2) + (u2 * c1));
+      float z = ((u1 * coeff_1) - (u2 * coeff_2));
+      u2 = ((u1 * coeff_2) + (u2 * coeff_1));
       u1 = z;
     }
-    c2 = sqrt((1.0 - c1) / 2.0);
-    c2 = -c2;
-    c1 = sqrt((1.0 + c1) / 2.0);
+    coeff_2 = sqrt((1.0 - coeff_1) / 2.0);
+    coeff_2 = -coeff_2;
+    coeff_1 = sqrt((1.0 + coeff_1) / 2.0);
   }
+
+  // We only care about amplitude
   computeAmplitude(audio_data_real, audio_data_imaginary);
   delete[] audio_data_imaginary;
+}
+
+float MelSpectogram::hertzToMelScale(float f) {
+  return 2595.0 * log10(1.0 + f / 700.0);
+}
+
+float MelSpectogram::melToHertzScale(float m) {
+  return 700.0 * (pow(10.0, m / 2595.0) - 1.0);
+}
+
+void MelSpectogram::calculate_mel_spec_coeff(uint16_t number_of_mel_spec_bins,
+                                             float min_frequency,
+                                             float max_frequecy,
+                                             uint16_t number_of_fft_bins,
+                                             uint16_t sample_rate) {
+  float low_freq_in_mel_scale = hertzToMelScale(min_frequency);
+  float high_freq_in_mel_scale = hertzToMelScale(max_frequecy);
+
+  mel_spec_mat = new float*[number_of_mel_spec_bins];
+  for (uint16_t i = 0; i < number_of_mel_spec_bins; i++)
+    mel_spec_mat[i] = new float[number_of_fft_bins];
+
+  float* center_filter_frequency = new float[number_of_mel_spec_bins + 2];
+
+  for (uint16_t i = 0; i < number_of_mel_spec_bins + 2; i++) {
+    center_filter_frequency[i] =
+        melToHertzScale(low_freq_in_mel_scale +
+                        (high_freq_in_mel_scale - low_freq_in_mel_scale) /
+                            (number_of_mel_spec_bins + 1) * i);
+  }
+
+  float* fft_bin_frequency = new float[number_of_fft_bins];
+
+  for (uint16_t i = 0; i < number_of_fft_bins; i++) {
+    fft_bin_frequency[i] = (sample_rate / 2.0 / (number_of_fft_bins - 1) * i);
+  }
+
+  for (uint16_t mel_bin = 1; mel_bin <= number_of_mel_spec_bins; mel_bin++) {
+    for (uint16_t fft_bin = 0; fft_bin < number_of_fft_bins; fft_bin++) {
+      float weight;
+      if (fft_bin_frequency[fft_bin] < center_filter_frequency[mel_bin - 1]) {
+        weight = 0.0;
+      } else if (fft_bin_frequency[fft_bin] <=
+                 center_filter_frequency[mel_bin]) {
+        weight = (fft_bin_frequency[fft_bin] -
+                  center_filter_frequency[mel_bin - 1]) /
+                 (center_filter_frequency[mel_bin] -
+                  center_filter_frequency[mel_bin - 1]);
+      } else if (fft_bin_frequency[fft_bin] <=
+                 center_filter_frequency[mel_bin + 1]) {
+        weight = (center_filter_frequency[mel_bin + 1] -
+                  fft_bin_frequency[fft_bin]) /
+                 (center_filter_frequency[mel_bin + 1] -
+                  center_filter_frequency[mel_bin]);
+      } else {
+        weight = 0.0;
+      }
+      mel_spec_mat[mel_bin - 1][fft_bin] = weight;
+    }
+  }
+  delete[] center_filter_frequency;
+  delete[] fft_bin_frequency;
 }
