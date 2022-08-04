@@ -18,3 +18,9 @@ const uint16_t N_PIXELS = 60;
 const int LED_STRIP_DATA_PIN = 21;
 
 float audio_data_buffer[BUFFER_SIZE * N_BUFFER_ROLLING_HISTORY];
+
+float mel_spectogram_gain_alpha_decay = 0.06;
+float mel_spectogram_smoothing_alpha_decay = 0.5;
+
+float mel_spectogram_gain_alpha_rise = 0.99;
+float mel_spectogram_smoothing_alpha_rise = 0.99;
