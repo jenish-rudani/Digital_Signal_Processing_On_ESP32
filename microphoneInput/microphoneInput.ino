@@ -5,6 +5,8 @@
 #include "inc/defines.h"
 #include "inc/melSpectogram.h"
 
+#define LOG 1
+
 CRGB physic_leds[N_PIXELS];
 
 int16_t audioDataBuffer[audioBufferDataLength];
@@ -48,6 +50,13 @@ void loop() {
   static float mel_spectogram_data_buffer[NUMBER_OF_MEL_BIN];
   my_mel_spectogram.computeMelSpectogram(audio_data_buffer,
                                          mel_spectogram_data_buffer);
+
+#if LOG
+  for (int i = 0; i < NUMBER_OF_MEL_BIN; i++) {
+    Serial.print(mel_spectogram_data_buffer[i]);
+  }
+  Serial.println();
+#endif
 }
 
 void setupI2S() {

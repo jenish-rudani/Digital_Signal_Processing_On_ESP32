@@ -76,6 +76,8 @@ bool MelSpectogram::findMinMaxFromAudioBuffer(float* audio_buffer,
 void MelSpectogram::computeMelSpectogram(float* input_audio_data,
                                          float* mel_audio_data) {
   float min_audio_data, max_audio_data;
+  float max_mel_spec_data;
+
   findMinMaxFromAudioBuffer(input_audio_data, mel_audio_data, &min_audio_data,
                             &max_audio_data);
   memcpy(temp_audio_data, input_audio_data,
@@ -86,6 +88,25 @@ void MelSpectogram::computeMelSpectogram(float* input_audio_data,
 
   // FFT Calculation
   computeFFT(temp_audio_data);
+
+  max_mel_spec_data = 0.0;
+  for (int i = 0; i < number_of_mel_bins; i++) {
+    mel_audio_data[i] = 0.0;
+    for (int j = 0; j < number_of_audio_data_samples / 2; j++) {
+      mel_audio_data[i] += temp_audio_data[j] * mel_spec_mat[i][j];
+    }
+    mel_audio_data[i] = mel_audio_data[i] * mel_audio_data[i];
+    max_mel_spec_data = std::max(mel_audio_data[i], max_mel_spec_data);
+  }
+
+  mel_spectogram_gain->update_smoothed_value(&max_mel_spec_data);
+
+  if (max_mel_spec_data > 0.0) {
+    for (int i = 0; i < number_of_mel_bins; i++) {
+      mel_audio_data[i] /= max_mel_spec_data;
+    }
+  }
+  mel_spectogram_smoothing->update_smoothed_value(mel_audio_data);
 }
 void MelSpectogram::arrangeAudioBufferDataBasedOnBitReversedIndex(
     float* audio_data) {
