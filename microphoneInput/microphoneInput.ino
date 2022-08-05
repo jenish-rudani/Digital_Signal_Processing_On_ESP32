@@ -3,11 +3,14 @@
 #include <driver/i2s.h>
 
 #include "inc/defines.h"
+#include "inc/ledVisualization.h"
 #include "inc/melSpectogram.h"
 
 #define LOG 1
 
-CRGB physic_leds[N_PIXELS];
+class LedVisualEffects my_led_effects(NUMBER_OF_MEL_BIN, NUMBER_OF_LEDS);
+CRGB physic_leds[NUMBER_OF_LEDS];
+float audio_data_buffer[BUFFER_SIZE * N_BUFFER_ROLLING_HISTORY];
 
 int16_t audioDataBuffer[audioBufferDataLength];
 uint16_t number_of_total_samples = BUFFER_SIZE * N_BUFFER_ROLLING_HISTORY;
@@ -20,7 +23,7 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
-  FastLED.addLeds<NEOPIXEL, LED_STRIP_DATA_PIN>(physic_leds, N_PIXELS);
+  FastLED.addLeds<NEOPIXEL, LED_STRIP_DATA_PIN>(physic_leds, NUMBER_OF_LEDS);
   delay(100);
 
   Serial.println("Setting I2S Drivers");
@@ -57,6 +60,7 @@ void loop() {
   }
   Serial.println();
 #endif
+  my_led_effects.scroll_mel_audio_data(mel_spectogram_data_buffer, physic_leds);
 }
 
 void setupI2S() {
